@@ -1,0 +1,6 @@
+node_modules
+dist
+.env
+.pnpm-store/
+vite.config.js.bak
+*.ps1
