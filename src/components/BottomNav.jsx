@@ -1,13 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ClipboardList, BarChart3, Settings, Sparkles, Calendar } from 'lucide-react';
+import { Home, ClipboardList, BarChart3, Settings } from 'lucide-react';
 
 const tabs = [
-  { path: '/', label: '今日', icon: Home },
-  { path: '/assessment', label: '评估', icon: ClipboardList },
-  { path: '/ai-chat', label: 'AI', icon: Sparkles },
-  { path: '/progress', label: '进度', icon: BarChart3 },
-  { path: '/ai-plan', label: '计划', icon: Calendar },
-  { path: '/settings', label: '设置', icon: Settings },
+  { path: '/', label: '浠婃棩', icon: Home },
+  { path: '/assessment', label: '璇勪及', icon: ClipboardList },
+  { path: '/progress', label: '杩涘害', icon: BarChart3 },
+  { path: '/settings', label: '璁剧疆', icon: Settings },
 ];
 
 export default function BottomNav() {
