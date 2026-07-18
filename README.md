@@ -1,6 +1,7 @@
 # 腰部康复 App (back-rehab)
 
 一个帮助腰部康复训练的移动端 Web 应用，基于 React + Vite 构建。
+网址:https://ad29d6c0.back-rehab.pages.dev/
 
 ## 功能特点
 - 📋 个性化评估
