@@ -1,7 +1,7 @@
 /**
  * POST /api/plan
  * AI-powered rehab plan generator using Workers AI.
- * Generates a structured weekly exercise plan based on phase, pain level, and duration.
+ * Generates a structured weekly exercise plan based on phase, pain level, duration, and assessment history.
  */
 export async function onRequestPost({ request, env }) {
   const SYSTEM_PROMPT = `You are a professional rehab plan designer for lower back pain. Generate structured weekly plans.
@@ -29,12 +29,21 @@ Respond ONLY with JSON, no markdown:
 
   try {
     const body = await request.json();
-    const { phase = "sub-acute", painLevel = 3, duration = 15, notes = "" } = body;
+    const { phase = "sub-acute", painLevel = 3, duration = 15, notes = "", assessment = null } = body;
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+    // 构建包含评估记忆的用户提示
+    let userContent = 'Generate a ' + phase + ' phase rehab plan. Pain level: ' + painLevel + '/10. Session duration: ' + duration + ' minutes.';
+    if (notes) {
+      userContent += ' Notes: ' + notes;
+    }
+    if (assessment) {
+      userContent += ' Assessment history: type=' + assessment.type + ', direction=' + assessment.directionalPreference + ', summary=' + assessment.summary + '. Use this assessment context to personalize the plan.';
+    }
+
+    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Generate a ${phase} phase rehab plan. Pain level: ${painLevel}/10. Session duration: ${duration} minutes. ${notes ? "Notes: " + notes : ""}` },
+        { role: "user", content: userContent },
       ],
       max_tokens: 2048,
     });

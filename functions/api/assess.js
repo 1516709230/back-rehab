@@ -1,7 +1,7 @@
 /**
  * POST /api/assess
  * AI-powered lower-back symptom assessment using Workers AI.
- * Receives chat messages, returns structured exercise recommendations in Chinese.
+ * Receives chat messages + assessment history, returns structured exercise recommendations.
  */
 export async function onRequestPost({ request, env }) {
   const SYSTEM_PROMPT = `你是一位资深康复理疗师，专门评估下背痛症状并提供运动建议。
@@ -34,7 +34,7 @@ export async function onRequestPost({ request, env }) {
 
   try {
     const body = await request.json();
-    const { messages } = body;
+    const { messages, assessmentHistory } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -43,12 +43,30 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
+    // 将用户的评估历史作为记忆注入系统提示词
+    let memoryContext = '';
+    if (assessmentHistory && Array.isArray(assessmentHistory) && assessmentHistory.length > 0) {
+      const latest = assessmentHistory[0];
+      memoryContext = '\n\n## 用户既往评估记录（长期记忆）\n';
+      memoryContext += '最近评估日期: ' + latest.date + '\n';
+      memoryContext += '既往分型: ' + latest.type + '\n';
+      memoryContext += '方向偏好: ' + latest.directionalPreference + '\n';
+      memoryContext += '既往总结: ' + latest.summary + '\n';
+      if (assessmentHistory.length > 1) {
+        memoryContext += '历史评估次数: ' + assessmentHistory.length + ' 次\n';
+        memoryContext += '既往类型: ' + assessmentHistory.map(a => a.type).join('、') + '\n';
+      }
+      memoryContext += '请结合用户过往的评估记录回答当前问题。';
+    }
+
+    const fullSystemPrompt = SYSTEM_PROMPT + memoryContext;
+
     const aiMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: fullSystemPrompt },
       ...messages
     ];
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: aiMessages,
       max_tokens: 1024,
     });

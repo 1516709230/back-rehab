@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, AlertTriangle, Loader2, Brain } from 'lucide-react';
+import { getAssessments } from '../db';
 
 export default function AIChat() {
   const [messages, setMessages] = useState([]);
@@ -8,6 +9,17 @@ export default function AIChat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const endRef = useRef(null);
+
+  // 加载评估历史作为 AI 的长期记忆
+  const [assessmentMemory, setAssessmentMemory] = useState(null);
+  useEffect(() => {
+    getAssessments().then((all) => {
+      if (all && all.length > 0) {
+        const sorted = all.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setAssessmentMemory(sorted);
+      }
+    });
+  }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, result, loading]);
 
@@ -25,7 +37,7 @@ export default function AIChat() {
       const res = await fetch('/api/assess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, assessmentHistory: assessmentMemory }),
       });
       if (!res.ok) throw new Error('请求失败');
       const data = await res.json();

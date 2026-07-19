@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Sparkles, Loader2, ChevronRight, RefreshCw } from 'lucide-react';
+import { getLatestAssessment } from '../db';
 
 const phases = [
   { key: 'acute', label: '急性期', desc: '1-7天' },
@@ -18,6 +19,12 @@ export default function AIPlan() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const [latestAssessment, setLatestAssessment] = useState(null);
+
+  useEffect(() => {
+    getLatestAssessment().then(setLatestAssessment);
+  }, []);
+
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
@@ -25,7 +32,15 @@ export default function AIPlan() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase, painLevel, duration, notes }),
+        body: JSON.stringify({
+          phase,
+          painLevel,
+          duration,
+          notes,
+          assessment: latestAssessment
+            ? { type: latestAssessment.type, directionalPreference: latestAssessment.directionalPreference, summary: latestAssessment.summary }
+            : null
+        }),
       });
       if (!res.ok) throw new Error('生成失败');
       const data = await res.json();
