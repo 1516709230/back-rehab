@@ -1,10 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ClipboardList, BarChart3, Settings } from 'lucide-react';
+import { Home, ClipboardList, BarChart3, Settings, Sparkles, Calendar } from 'lucide-react';
 
 const tabs = [
   { path: '/', label: '今日', icon: Home },
   { path: '/assessment', label: '评估', icon: ClipboardList },
+  { path: '/ai-chat', label: 'AI', icon: Sparkles },
   { path: '/progress', label: '进度', icon: BarChart3 },
+  { path: '/ai-plan', label: '计划', icon: Calendar },
   { path: '/settings', label: '设置', icon: Settings },
 ];
 

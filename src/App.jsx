@@ -6,6 +6,8 @@ import Home from './pages/Home';
 import Assessment from './pages/Assessment';
 import Progress from './pages/Progress';
 import Settings from './pages/Settings';
+import AIChat from './pages/AIChat';
+import AIPlan from './pages/AIPlan';
 
 function LoadingScreen() {
   return (
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/assessment" element={<Assessment />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/ai-chat" element={<AIChat />} />
+          <Route path="/ai-plan" element={<AIPlan />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
         <BottomNav />
