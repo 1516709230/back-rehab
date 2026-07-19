@@ -1,10 +1,6 @@
-/**
- * POST /api/assess
- * AI-powered lower-back symptom assessment using Workers AI.
- * Receives chat messages, returns structured exercise recommendations in Chinese.
- */
-export async function onRequestPost({ request, env }) {
-  const SYSTEM_PROMPT = `你是一位资深康复理疗师，专门评估下背痛症状并提供运动建议。
+import { callAIWithFallback, parseAIResponse, createErrorResponse, createSuccessResponse } from './lib/ai';
+
+const SYSTEM_PROMPT = `你是一位资深康复理疗师，专门评估下背痛症状并提供运动建议。
 
 ## 你的知识范围
 常见下背痛病因：肌肉劳损、椎间盘突出、坐骨神经痛、椎管狭窄、小关节综合征、骶髂关节功能障碍。
@@ -32,55 +28,66 @@ export async function onRequestPost({ request, env }) {
   "precautions": "注意事项（中文）"
 }`;
 
+export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { messages } = body;
+    const { messages, assessmentHistory } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "请提供 messages 数组" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return createErrorResponse("请提供 messages 数组", null, 400);
     }
 
+    const memoryContext = buildMemoryContext(assessmentHistory);
+    const fullSystemPrompt = SYSTEM_PROMPT + memoryContext;
+
     const aiMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: fullSystemPrompt },
       ...messages
     ];
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
-      messages: aiMessages,
-      max_tokens: 1024,
-    });
-
+    const aiResponse = await callAIWithFallback(env, aiMessages);
     const rawContent = aiResponse.response || aiResponse;
-    const cleaned = rawContent
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/, "")
-      .trim();
+    const parsed = parseAIResponse(rawContent);
 
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      parsed = {
-        type: "不确定",
-        directionalPreference: "通用",
-        summary: cleaned.substring(0, 200),
-        recommendations: [],
-        hasRedFlag: false,
-        precautions: "请咨询专业医师获取准确评估。"
-      };
-    }
+    const result = typeof parsed === 'object' 
+      ? parsed 
+      : createFallbackResult(parsed);
 
-    return new Response(JSON.stringify(parsed), {
-      headers: { "Content-Type": "application/json; charset=utf-8" }
-    });
+    return createSuccessResponse(result);
   } catch (err) {
     console.error("assess error:", err);
-    return new Response(
-      JSON.stringify({ error: "评估失败，请稍后重试" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return createErrorResponse("评估失败", err.message || err);
   }
+}
+
+function buildMemoryContext(assessmentHistory) {
+  if (!assessmentHistory || !Array.isArray(assessmentHistory) || assessmentHistory.length === 0) {
+    return '';
+  }
+
+  const latest = assessmentHistory[0];
+  let context = '\n\n## 用户既往评估记录（长期记忆）\n';
+  context += `最近评估日期: ${latest.date}\n`;
+  context += `既往分型: ${latest.type}\n`;
+  context += `方向偏好: ${latest.directionalPreference}\n`;
+  context += `既往总结: ${latest.summary}\n`;
+  
+  if (assessmentHistory.length > 1) {
+    context += `历史评估次数: ${assessmentHistory.length} 次\n`;
+    context += `既往类型: ${assessmentHistory.map(a => a.type).join('、')}\n`;
+  }
+  context += '请结合用户过往的评估记录回答当前问题。';
+  
+  return context;
+}
+
+function createFallbackResult(content) {
+  return {
+    type: "不确定",
+    directionalPreference: "通用",
+    summary: String(content).substring(0, 200),
+    recommendations: [],
+    hasRedFlag: false,
+    precautions: "请咨询专业医师获取准确评估。"
+  };
 }

@@ -9,35 +9,44 @@ const durationConfig = {
 
 export function generatePlan({ directionalPreference, duration, recommendedExercises }) {
   const config = durationConfig[duration] || durationConfig[10];
-  const plan = [];
-
-  let directionalPool;
-  if (recommendedExercises && recommendedExercises.length > 0) {
-    directionalPool = exercises.filter((e) => recommendedExercises.includes(e.id));
-  } else {
-    directionalPool = exercises.filter(
-      (e) => e.category === '定向' && (e.directionalType === directionalPreference || e.directionalType === '通用')
-    );
-  }
+  
+  const directionalPool = recommendedExercises && recommendedExercises.length > 0
+    ? exercises.filter(e => recommendedExercises.includes(e.id))
+    : exercises.filter(e => e.category === '定向' && 
+                           (e.directionalType === directionalPreference || e.directionalType === '通用'));
+  
   const selectedDirectional = directionalPool.slice(0, config.directionalCount);
+  const selectedBase = exercises.filter(e => e.category === '基础').slice(0, config.baseCount);
+  
+  const selectedCore = config.coreCount > 0
+    ? exercises.filter(e => e.directionalType === '核心稳定' && !selectedDirectional.includes(e))
+               .slice(0, config.coreCount)
+    : [];
 
-  const basePool = exercises.filter((e) => e.category === '基础');
-  const selectedBase = basePool.slice(0, config.baseCount);
-
-  let selectedCore = [];
-  if (config.coreCount > 0) {
-    const corePool = exercises.filter((e) => e.directionalType === '核心稳定' && !selectedDirectional.includes(e));
-    selectedCore = corePool.slice(0, config.coreCount);
-  }
-
-  plan.push(...selectedBase);
-  plan.push(...selectedDirectional);
-  plan.push(...selectedCore);
+  const plan = [
+    ...selectedBase,
+    ...selectedDirectional,
+    ...selectedCore,
+  ];
 
   if (config.stretch) {
-    const stretch = exercises.find((e) => e.id === 'piriformis-stretch');
-    if (stretch) plan.push(stretch);
+    const piriformisStretch = exercises.find(e => e.id === 'piriformis-stretch');
+    if (piriformisStretch && !plan.includes(piriformisStretch)) {
+      plan.push(piriformisStretch);
+    }
   }
 
   return plan.map((ex, index) => ({ ...ex, order: index + 1 }));
+}
+
+export function generateWeeklyPlan(params) {
+  const dailyPlan = generatePlan(params);
+  const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  
+  return days.map((day, index) => ({
+    day: index + 1,
+    dayName: day,
+    focus: params.directionalPreference || '核心训练',
+    exercises: dailyPlan,
+  }));
 }
