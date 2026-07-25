@@ -12,6 +12,7 @@ export default function Settings() {
   useEffect(() => {
     getSetting('sitReminderInterval').then((v) => { if (v) setSitInterval(v); });
     getSetting('dailyReminderTime').then((v) => { if (v) setDailyReminder(v); });
+    getSetting('notificationsEnabled').then((v) => { if (v) setNotifEnabled(v); });
   }, []);
 
   const handleIntervalChange = (val) => {

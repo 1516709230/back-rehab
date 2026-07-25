@@ -1,18 +1,18 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'back-rehab';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export async function initDB() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
       if (!db.objectStoreNames.contains('dailyLogs')) {
         const logStore = db.createObjectStore('dailyLogs', { keyPath: 'date' });
         logStore.createIndex('byDate', 'date', { unique: true });
       }
       if (!db.objectStoreNames.contains('painRecords')) {
-        const painStore = db.createObjectStore('painRecords', { keyPath: 'date' });
-        painStore.createIndex('byDate', 'date', { unique: true });
+        const painStore = db.createObjectStore('painRecords', { keyPath: 'id', autoIncrement: true });
       }
       if (!db.objectStoreNames.contains('assessments')) {
         const assessStore = db.createObjectStore('assessments', { keyPath: 'id', autoIncrement: true });
@@ -20,6 +20,15 @@ export async function initDB() {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      }
+      if (oldVersion < 2) {
+        // v2: painRecords changed from keyPath:date to autoIncrement id
+        if (db.objectStoreNames.contains('painRecords')) {
+          db.deleteObjectStore('painRecords');
+        }
+        const painStore = db.createObjectStore('painRecords', { keyPath: 'id', autoIncrement: true });
+        painStore.createIndex('byDate', 'date', { unique: false });
       }
     },
   });
@@ -51,7 +60,7 @@ export async function getLogsInRange(startDate, endDate) {
 
 export async function savePainRecord(record) {
   const db = await getDB();
-  return db.put('painRecords', record);
+  return db.add('painRecords', record);
 }
 
 export async function getPainRecords() {

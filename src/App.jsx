@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
+import ErrorBoundary from './components/ErrorBoundary';
 import { initDB } from './db';
 import Home from './pages/Home';
 import Assessment from './pages/Assessment';
@@ -44,6 +45,7 @@ export default function App() {
   return (
     <HashRouter>
       <div className="mx-auto min-h-screen max-w-md bg-gray-50 pb-16">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/assessment" element={<Assessment />} />
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/ai-plan" element={<AIPlan />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
+        </ErrorBoundary>
         <BottomNav />
       </div>
     </HashRouter>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
-import { getLogsInRange, getPainRecords } from '../db';
+import { getLogsInRange, getPainRecords, getDailyLog } from '../db';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { CalendarDays, TrendingUp, CheckCircle2 } from 'lucide-react';
 
@@ -33,19 +33,24 @@ export default function Progress() {
         .map((r) => ({ date: format(new Date(r.date), 'MM/dd'), score: r.score }));
       setPainData(recentPain);
 
+      // 本周完成率：始终用本周日期（不受 viewMonth 影响）
       const weekDays = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         weekDays.push(format(d, 'yyyy-MM-dd'));
       }
-      const weekLogs = monthLogs.filter((l) => weekDays.includes(l.date));
-      const weekCompleted = weekLogs.filter((l) => l.isComplete).length;
-      setWeekRate(Math.round((weekCompleted / 7) * 100));
+      Promise.all(weekDays.map((d) => getDailyLog(d))).then((weekLogs) => {
+        const weekCompleted = weekLogs.filter((l) => l && l.isComplete).length;
+        setWeekRate(Math.round((weekCompleted / 7) * 100));
+      });
 
-      const monthDays = eachDayOfInterval({ start, end }).length;
+      // 月完成率：只算到今天为止的当月天数
+      const todayStr = format(today, 'yyyy-MM-dd');
+      const allMonthDays = eachDayOfInterval({ start, end }).map((d) => format(d, 'yyyy-MM-dd'));
+      const daysUpToToday = allMonthDays.filter((d) => d <= todayStr);
       const monthCompleted = monthLogs.filter((l) => l.isComplete).length;
-      setMonthRate(Math.round((monthCompleted / monthDays) * 100));
+      setMonthRate(daysUpToToday.length > 0 ? Math.round((monthCompleted / daysUpToToday.length) * 100) : 0);
     });
   }, [viewMonth]);
 
@@ -80,7 +85,7 @@ export default function Progress() {
           <div className="flex gap-2">
             <button onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} className="px-2 text-gray-500">&lt;</button>
             <span className="font-medium">{format(viewMonth, 'yyyy年 M月')}</span>
-            <button onClick={() => setViewMonth(new Date())} className="px-2 text-gray-500">&gt;</button>
+            <button onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} className="px-2 text-gray-500">&gt;</button>
           </div>
           <button onClick={() => setViewMonth(new Date())} className="text-xs text-blue-600">
             本月

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { generatePlan } from '../logic/exercisePlan';
 import { saveDailyLog, savePainRecord, getDailyLog, getLatestAssessment } from '../db';
@@ -6,9 +7,10 @@ import DurationPicker from '../components/DurationPicker';
 import ExerciseCard from '../components/ExerciseCard';
 import NprsSlider from '../components/NprsSlider';
 import SittingTimer from '../components/SittingTimer';
-import { Flame } from 'lucide-react';
+import { Flame, ClipboardList } from 'lucide-react';
 
 export default function Home() {
+  const navigate = useNavigate();
   const today = format(new Date(), 'yyyy-MM-dd');
   const [duration, setDuration] = useState(10);
   const [plan, setPlan] = useState([]);
@@ -18,6 +20,7 @@ export default function Home() {
   const [assessment, setAssessment] = useState(null);
   const [streak, setStreak] = useState(0);
   const [initialized, setInitialized] = useState(false);
+  const [todayCompleted, setTodayCompleted] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -26,9 +29,10 @@ export default function Home() {
     ]).then(([log, assess]) => {
       if (assess) setAssessment(assess);
       if (log && log.isComplete) {
+        setDuration(log.duration || 10);
         setCompletedIds(new Set(log.completedExercises || []));
         setPainScore(log.painScore || 0);
-        setShowNprs(true);
+        setTodayCompleted(true);
       }
       setInitialized(true);
     });
@@ -93,9 +97,47 @@ export default function Home() {
   if (!assessment) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
-        <Flame size={48} className="mb-4 text-gray-300" />
+        <ClipboardList size={48} className="mb-4 text-gray-300" />
         <h2 className="text-lg font-medium text-gray-600">还没有评估</h2>
         <p className="mt-2 text-sm text-gray-500">请先完成腰部评估，获取个性化方案</p>
+        <button
+          onClick={() => navigate('/assessment')}
+          className="mt-6 rounded-xl bg-blue-600 px-8 py-3 font-medium text-white"
+        >
+          去评估
+        </button>
+      </div>
+    );
+  }
+
+  if (todayCompleted) {
+    return (
+      <div className="space-y-4 p-4 pb-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">今日康复</h1>
+          <div className="flex items-center gap-1 text-sm text-orange-500">
+            <Flame size={16} /> <span>连续 {streak} 天</span>
+          </div>
+        </div>
+
+        <SittingTimer />
+
+        <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+          <div className="text-4xl mb-2">🎉</div>
+          <h2 className="text-lg font-bold text-green-700">今日已完成</h2>
+          <p className="mt-1 text-sm text-green-600">
+            {duration} 分钟 · {completedIds.size} 个动作
+          </p>
+          {painScore > 0 && (
+            <p className="mt-1 text-sm text-green-600">
+              疼痛评分：{painScore}/10
+            </p>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-gray-400">
+          本工具不构成医疗诊断，不可替代专业医师
+        </p>
       </div>
     );
   }
@@ -142,6 +184,10 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      <p className="text-center text-xs text-gray-400">
+        本工具不构成医疗诊断，不可替代专业医师
+      </p>
     </div>
   );
 }

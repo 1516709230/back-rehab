@@ -5,7 +5,8 @@ import { saveAssessment, getLatestAssessment } from '../db';
 import { ClipboardList, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function Assessment() {
-  const [step, setStep] = useState('loading');
+  const [pageState, setPageState] = useState('loading');
+  const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [latestAssessment, setLatestAssessment] = useState(null);
@@ -21,9 +22,9 @@ export default function Assessment() {
           hasRedFlag: assess.hasRedFlag,
           recommendedExercises: assess.recommendedExercises,
         });
-        setStep('done');
+        setPageState('done');
       } else {
-        setStep('intro');
+        setPageState('intro');
       }
     });
   }, []);
@@ -32,8 +33,7 @@ export default function Assessment() {
     const newAnswers = { ...answers, [questionId]: value };
     setAnswers(newAnswers);
 
-    const currentStep = typeof step === 'number' ? step : 0;
-    if (currentStep >= questions.length - 1) {
+    if (questionIndex >= questions.length - 1) {
       const assessmentResult = runAssessment(newAnswers);
       const record = {
         date: new Date().toISOString(),
@@ -43,19 +43,20 @@ export default function Assessment() {
       saveAssessment(record);
       setResult(assessmentResult);
       setLatestAssessment(record);
-      setStep('done');
+      setPageState('done');
     } else {
-      setStep(currentStep + 1);
+      setQuestionIndex(questionIndex + 1);
     }
   };
 
   const startNewAssessment = () => {
-    setStep('intro');
+    setPageState('intro');
+    setQuestionIndex(0);
     setAnswers({});
     setResult(null);
   };
 
-  if (step === 'loading') {
+  if (pageState === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center text-gray-500">
         <p>加载中...</p>
@@ -63,7 +64,7 @@ export default function Assessment() {
     );
   }
 
-  if (step === 'intro') {
+  if (pageState === 'intro') {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
         <ClipboardList size={48} className="mb-4 text-blue-600" />
@@ -71,7 +72,7 @@ export default function Assessment() {
         <p className="mt-2 text-sm text-gray-500">回答几个简单问题，我们将评估你的腰部状况</p>
         <p className="mt-1 text-xs text-gray-400">约需 2 分钟</p>
         <button
-          onClick={() => setStep(0)}
+          onClick={() => setPageState('assessing')}
           className="mt-6 rounded-xl bg-blue-600 px-8 py-3 font-medium text-white"
         >
           开始评估
@@ -87,7 +88,7 @@ export default function Assessment() {
     );
   }
 
-  if (step === 'done' && result) {
+  if (pageState === 'done' && result) {
     return (
       <div className="space-y-4 p-4 pb-8">
         <div className="flex items-center justify-between">
@@ -176,17 +177,17 @@ export default function Assessment() {
     );
   }
 
-  const currentQuestion = questions[step];
+  const currentQuestion = questions[questionIndex];
   return (
     <div className="space-y-6 p-4 pb-8">
       <div className="flex items-center gap-2">
         <div className="h-2 flex-1 rounded-full bg-gray-200">
           <div
             className="h-2 rounded-full bg-blue-600 transition-all"
-            style={{ width: `${((step + 1) / questions.length) * 100}%` }}
+            style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }}
           />
         </div>
-        <span className="text-xs text-gray-400">{step + 1}/{questions.length}</span>
+        <span className="text-xs text-gray-400">{questionIndex + 1}/{questions.length}</span>
       </div>
 
       <h2 className="text-lg font-bold">{currentQuestion.question}</h2>
