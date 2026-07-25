@@ -37,15 +37,16 @@ export async function onRequestPost({ request, env }) {
       return createErrorResponse("请提供 messages 数组", null, 400);
     }
 
-    const memoryContext = buildMemoryContext(assessmentHistory);
-    const fullSystemPrompt = SYSTEM_PROMPT + memoryContext;
-
     const aiMessages = [
       { role: "system", content: fullSystemPrompt },
       ...messages
     ];
 
-    const aiResponse = await callAIWithFallback(env, aiMessages);
+    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
+      messages: aiMessages,
+      max_tokens: 1024,
+    });
+
     const rawContent = aiResponse.response || aiResponse;
     const parsed = parseAIResponse(rawContent);
 

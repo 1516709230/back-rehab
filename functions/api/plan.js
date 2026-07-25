@@ -28,13 +28,23 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { phase = "sub-acute", painLevel = 3, duration = 15, notes = "", assessment = null } = body;
 
-    const userContent = buildUserContent(phase, painLevel, duration, notes, assessment);
-    const aiMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userContent },
-    ];
+    // 构建包含评估记忆的用户提示
+    let userContent = 'Generate a ' + phase + ' phase rehab plan. Pain level: ' + painLevel + '/10. Session duration: ' + duration + ' minutes.';
+    if (notes) {
+      userContent += ' Notes: ' + notes;
+    }
+    if (assessment) {
+      userContent += ' Assessment history: type=' + assessment.type + ', direction=' + assessment.directionalPreference + ', summary=' + assessment.summary + '. Use this assessment context to personalize the plan.';
+    }
 
-    const aiResponse = await callAIWithFallback(env, aiMessages, 2048);
+    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userContent },
+      ],
+      max_tokens: 2048,
+    });
+
     const rawContent = aiResponse.response || aiResponse;
     const parsed = parseAIResponse(rawContent);
 
