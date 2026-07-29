@@ -10,6 +10,10 @@ export default function Settings() {
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   useEffect(() => {
+    // Sync with actual browser permission state first
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotifEnabled(true);
+    }
     getSetting('sitReminderInterval').then((v) => { if (v) setSitInterval(v); });
     getSetting('dailyReminderTime').then((v) => { if (v) setDailyReminder(v); });
     getSetting('notificationsEnabled').then((v) => { if (v) setNotifEnabled(v); });
@@ -26,6 +30,14 @@ export default function Settings() {
   };
 
   const handleNotifToggle = async () => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // Permission already granted — nothing more to request
+      return;
+    }
+    if ('Notification' in window && Notification.permission === 'denied') {
+      alert('通知已被浏览器阻止，请在浏览器设置中允许通知后再试。');
+      return;
+    }
     const granted = await requestNotificationPermission();
     setNotifEnabled(granted);
     saveSetting('notificationsEnabled', granted);
@@ -63,7 +75,7 @@ export default function Settings() {
               notifEnabled ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
             }`}
           >
-            {notifEnabled ? '已开启' : '开启通知'}
+            {notifEnabled ? '已开启' : (('Notification' in window && Notification.permission === 'denied') ? '已阻止' : '开启通知')}
           </button>
         </div>
       </div>

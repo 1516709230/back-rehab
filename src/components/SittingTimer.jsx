@@ -49,9 +49,8 @@ export default function SittingTimer() {
   useEffect(() => { intervalRef.current = intervalMinutes; }, [intervalMinutes]);
   useEffect(() => { notifEnabledRef.current = notifEnabled; }, [notifEnabled]);
 
-  // --- Send a notification when the user has opted in ---
+  // --- Send a notification (sendNotification handles the permission check) ---
   const fireIfEnabled = useCallback(() => {
-    if (!notifEnabledRef.current) return;
     sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
   }, []);
 
