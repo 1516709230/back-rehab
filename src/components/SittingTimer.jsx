@@ -35,6 +35,7 @@ export default function SittingTimer() {
   const [seconds, setSeconds] = useState(0);
   const [intervalMinutes, setIntervalMinutes] = useState(30);
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [reminded, setReminded] = useState(false);
 
   const notifiedRef = useRef(false);
   const tickRef = useRef(null);
@@ -103,6 +104,7 @@ export default function SittingTimer() {
         // Use dbNotifEnabled directly because notifEnabledRef hasn't synced yet
         if (elapsed >= totalSeconds && !persisted.notified) {
           notifiedRef.current = true;
+          setReminded(true);
           if (dbNotifEnabled) {
             sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
           }
@@ -136,6 +138,7 @@ export default function SittingTimer() {
         const newS = s + 1;
         if (newS >= intervalRef.current * 60 && !notifiedRef.current) {
           notifiedRef.current = true;
+          setReminded(true);
           fireIfEnabled();
           scheduleReReminder();
           if (startTimeRef.current) {
@@ -162,6 +165,7 @@ export default function SittingTimer() {
 
         if (!notifiedRef.current && elapsed >= totalSeconds) {
           notifiedRef.current = true;
+          setReminded(true);
           fireIfEnabled();
           scheduleReReminder();
           persist({ startTime: startTimeRef.current, running: true, notified: true, intervalMinutes: intervalRef.current });
@@ -179,6 +183,7 @@ export default function SittingTimer() {
     startTimeRef.current = now;
     setSeconds(0);
     notifiedRef.current = false;
+    setReminded(false);
     setRunning(true);
     persist({ startTime: now, running: true, notified: false, intervalMinutes });
   }, [intervalMinutes]);
@@ -194,6 +199,7 @@ export default function SittingTimer() {
     setRunning(false);
     setSeconds(0);
     notifiedRef.current = false;
+    setReminded(false);
     startTimeRef.current = null;
     persist({ startTime: null, running: false, notified: false, intervalMinutes: null });
   };
@@ -220,6 +226,13 @@ export default function SittingTimer() {
           </button>
         </div>
       </div>
+
+      {reminded && (
+        <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+          <p className="text-sm font-medium text-orange-700">⏰ 该起来活动一下了！</p>
+          <p className="mt-1 text-xs text-orange-600">做几个伸展动作，活动一下腰部</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { saveSetting, getSetting, getAssessments, getPainRecords, getLogsInRange } from '../db';
-import { requestNotificationPermission } from '../logic/notifications';
+import { requestNotificationPermission, sendNotification } from '../logic/notifications';
 import { Bell, Timer, Download, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -78,6 +78,12 @@ export default function Settings() {
             {notifEnabled ? '已开启' : (('Notification' in window && Notification.permission === 'denied') ? '已阻止' : '开启通知')}
           </button>
         </div>
+        <button
+          onClick={() => sendNotification('测试通知', '如果你看到这条通知，说明推送功能正常')}
+          className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 py-2 text-sm text-blue-700"
+        >
+          测试通知
+        </button>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
