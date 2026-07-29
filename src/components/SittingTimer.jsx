@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Timer, Play, Pause, RotateCcw } from 'lucide-react';
 import { getSetting } from '../db';
+import { sendNotification } from '../logic/notifications';
 
 const STORAGE_KEY_START = 'sitTimerStartTime';
 const STORAGE_KEY_RUNNING = 'sitTimerRunning';
@@ -34,89 +35,146 @@ export default function SittingTimer() {
   const [seconds, setSeconds] = useState(0);
   const [intervalMinutes, setIntervalMinutes] = useState(30);
   const [notifEnabled, setNotifEnabled] = useState(false);
+
   const notifiedRef = useRef(false);
-  const intervalRef = useRef(null);
+  const tickRef = useRef(null);
+  const reRemindRef = useRef(null);
   const startTimeRef = useRef(null);
-  const intervalRef2 = useRef(intervalMinutes);
+  const intervalRef = useRef(30);
   const notifEnabledRef = useRef(false);
   const runningRef = useRef(false);
 
-  // keep running ref in sync so effect closures see the latest value
+  // Keep refs in sync so effect closures always read the latest value
   useEffect(() => { runningRef.current = running; }, [running]);
-
-  // keep a ref in sync so the interval closure sees the latest value
-  useEffect(() => { intervalRef2.current = intervalMinutes; }, [intervalMinutes]);
-
-  // keep notifEnabled ref in sync so effect closures see the latest value
+  useEffect(() => { intervalRef.current = intervalMinutes; }, [intervalMinutes]);
   useEffect(() => { notifEnabledRef.current = notifEnabled; }, [notifEnabled]);
 
-  // load settings on mount
-  useEffect(() => {
-    getSetting('sitReminderInterval').then((v) => { if (v) setIntervalMinutes(v); });
-    getSetting('notificationsEnabled').then((v) => { if (v) setNotifEnabled(v); });
+  // --- Send a notification when the user has opted in ---
+  const fireIfEnabled = useCallback(() => {
+    if (!notifEnabledRef.current) return;
+    sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
   }, []);
 
-  // restore persisted timer state on mount
-  useEffect(() => {
-    const persisted = loadPersisted();
-    if (persisted.startTime && persisted.running) {
-      startTimeRef.current = persisted.startTime;
-      const interval = persisted.storedInterval || intervalMinutes;
-      const totalSeconds = Math.min(persisted.storedInterval || intervalMinutes, intervalMinutes) * 60;
-      const elapsed = Math.floor((Date.now() - persisted.startTime) / 1000);
-      const clamped = Math.min(elapsed, totalSeconds);
-      setSeconds(clamped);
-      setRunning(true);
-      notifiedRef.current = persisted.notified;
-      // fire notification on mount if threshold crossed while user was away
-      if (!persisted.notified && elapsed >= totalSeconds) {
-        notifiedRef.current = true;
-        fireIfAllowed(notifEnabledRef.current);
-        persist({ startTime: persisted.startTime, running: true, notified: true, intervalMinutes });
-      }
+  // --- Re-reminder: every 5 minutes after the initial notification ---
+  const clearReReminder = useCallback(() => {
+    if (reRemindRef.current) {
+      clearTimeout(reRemindRef.current);
+      reRemindRef.current = null;
     }
   }, []);
 
-  // ticking interval
+  const scheduleReReminder = useCallback(() => {
+    clearReReminder();
+    reRemindRef.current = setTimeout(() => {
+      fireIfEnabled();
+      scheduleReReminder();
+    }, 5 * 60 * 1000);
+  }, [clearReReminder, fireIfEnabled]);
+
+  // --- Initialize: load settings from DB, then restore persisted timer ---
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      // 1. Load settings from the database
+      const [savedInterval, savedNotifEnabled] = await Promise.all([
+        getSetting('sitReminderInterval'),
+        getSetting('notificationsEnabled'),
+      ]);
+      if (cancelled) return;
+
+      const dbInterval = savedInterval || 30;
+      const dbNotifEnabled = !!savedNotifEnabled;
+
+      setIntervalMinutes(dbInterval);
+      setNotifEnabled(dbNotifEnabled);
+
+      // 2. Restore persisted timer state
+      const persisted = loadPersisted();
+      if (persisted.startTime && persisted.running) {
+        const effectiveInterval = persisted.storedInterval || dbInterval;
+        const totalSeconds = effectiveInterval * 60;
+        const elapsed = Math.floor((Date.now() - persisted.startTime) / 1000);
+
+        startTimeRef.current = persisted.startTime;
+        setSeconds(Math.min(elapsed, totalSeconds));
+        notifiedRef.current = persisted.notified;
+
+        // Fire notification on mount if the threshold was crossed while away
+        // Use dbNotifEnabled directly because notifEnabledRef hasn't synced yet
+        if (elapsed >= totalSeconds && !persisted.notified) {
+          notifiedRef.current = true;
+          if (dbNotifEnabled) {
+            sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
+          }
+          persist({ startTime: persisted.startTime, running: true, notified: true, intervalMinutes: effectiveInterval });
+        }
+
+        setRunning(true);
+      }
+    }
+
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
+  // --- Start / stop re-reminder when running + notified state changes ---
+  useEffect(() => {
+    if (running && notifiedRef.current) {
+      scheduleReReminder();
+    } else {
+      clearReReminder();
+    }
+    return () => clearReReminder();
+  }, [running, scheduleReReminder, clearReReminder]);
+
+  // --- 1-second ticking ---
   useEffect(() => {
     if (!running) return;
-    intervalRef.current = setInterval(() => {
+
+    tickRef.current = setInterval(() => {
       setSeconds((s) => {
         const newS = s + 1;
-        if (newS >= intervalRef2.current * 60 && !notifiedRef.current) {
+        if (newS >= intervalRef.current * 60 && !notifiedRef.current) {
           notifiedRef.current = true;
-          fireIfAllowed(notifEnabledRef.current);
+          fireIfEnabled();
+          scheduleReReminder();
           if (startTimeRef.current) {
-            persist({ startTime: startTimeRef.current, running: true, notified: true, intervalMinutes: intervalRef2.current });
+            persist({ startTime: startTimeRef.current, running: true, notified: true, intervalMinutes: intervalRef.current });
           }
         }
         return newS;
       });
     }, 1000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
 
-  // visibility change: catch up when user returns to tab (deps stable: no per-second re-registration)
+    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+  }, [running, fireIfEnabled, scheduleReReminder]);
+
+  // --- Visibility change: catch up when user returns to the tab ---
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible' || !runningRef.current) return;
-      const totalSeconds = intervalRef2.current * 60;
-      // recalc from stored start time
+      const totalSeconds = intervalRef.current * 60;
+
       if (startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         const clamped = Math.min(elapsed, totalSeconds);
         setSeconds(clamped);
+
         if (!notifiedRef.current && elapsed >= totalSeconds) {
           notifiedRef.current = true;
-          fireIfAllowed(notifEnabledRef.current);
-          persist({ startTime: startTimeRef.current, running: true, notified: true, intervalMinutes: intervalRef2.current });
+          fireIfEnabled();
+          scheduleReReminder();
+          persist({ startTime: startTimeRef.current, running: true, notified: true, intervalMinutes: intervalRef.current });
         }
       }
     };
+
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
+  }, [fireIfEnabled, scheduleReReminder]);
 
+  // --- Controls ---
   const start = useCallback(() => {
     const now = Date.now();
     startTimeRef.current = now;
@@ -165,13 +223,4 @@ export default function SittingTimer() {
       </div>
     </div>
   );
-}
-
-function fireIfAllowed(enabled) {
-  if (!enabled) return;
-  if (!('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
-  new Notification('该起来活动一下了！', {
-    body: '做几个伸展动作，活动一下腰部',
-  });
 }

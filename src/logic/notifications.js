@@ -8,5 +8,5 @@ export async function requestNotificationPermission() {
 
 export function sendNotification(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  new Notification(title, { body });
+  new Notification(title, { body, icon: '/icons/icon-192.png' });
 }
