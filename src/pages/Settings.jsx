@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { saveSetting, getSetting, getAssessments, getPainRecords, getLogsInRange } from '../db';
-import { requestNotificationPermission, sendNotification } from '../logic/notifications';
+import { requestNotificationPermission, sendNotification, getNotificationStatus } from '../logic/notifications';
 import { Bell, Timer, Download, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -8,6 +8,7 @@ export default function Settings() {
   const [sitInterval, setSitInterval] = useState(30);
   const [dailyReminder, setDailyReminder] = useState('20:00');
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifFeedback, setNotifFeedback] = useState(null); // { type: 'success' | 'error', text }
 
   useEffect(() => {
     // Sync with actual browser permission state first
@@ -41,6 +42,36 @@ export default function Settings() {
     const granted = await requestNotificationPermission();
     setNotifEnabled(granted);
     saveSetting('notificationsEnabled', granted);
+  };
+
+  const handleTestNotification = async () => {
+    const status = getNotificationStatus();
+
+    if (status === 'unsupported') {
+      setNotifFeedback({ type: 'error', text: '当前浏览器不支持通知功能（需要 HTTPS 或 localhost）' });
+      return;
+    }
+    if (status === 'denied') {
+      setNotifFeedback({ type: 'error', text: '通知权限已被阻止，请点击浏览器地址栏左侧的 🔔 图标，改为“允许”后重试' });
+      return;
+    }
+    if (status === 'default') {
+      // Permission never requested — request it now (user gesture allows the prompt)
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        setNotifFeedback({ type: 'error', text: '未获得通知权限，无法发送测试通知' });
+        return;
+      }
+      setNotifEnabled(true);
+      saveSetting('notificationsEnabled', true);
+    }
+
+    const ok = sendNotification('测试通知', '如果你看到这条通知，说明推送功能正常');
+    if (ok) {
+      setNotifFeedback({ type: 'success', text: '测试通知已发送 ✓ 请查看屏幕右上角/系统通知中心' });
+    } else {
+      setNotifFeedback({ type: 'error', text: '通知创建失败，请查看浏览器控制台错误' });
+    }
   };
 
   const handleExport = async () => {
@@ -79,11 +110,16 @@ export default function Settings() {
           </button>
         </div>
         <button
-          onClick={() => sendNotification('测试通知', '如果你看到这条通知，说明推送功能正常')}
+          onClick={handleTestNotification}
           className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 py-2 text-sm text-blue-700"
         >
           测试通知
         </button>
+        {notifFeedback && (
+          <p className={`mt-2 text-xs ${notifFeedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {notifFeedback.text}
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">

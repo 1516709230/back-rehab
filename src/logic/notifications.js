@@ -6,7 +6,20 @@ export async function requestNotificationPermission() {
   return result === 'granted';
 }
 
+/** Returns 'granted' | 'denied' | 'default' | 'unsupported' */
+export function getNotificationStatus() {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+}
+
+/** Sends a notification. Returns true if the notification was created, false otherwise. */
 export function sendNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  new Notification(title, { body, icon: '/icons/icon-192.png' });
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+  try {
+    new Notification(title, { body, icon: '/icons/icon-192.png' });
+    return true;
+  } catch (err) {
+    console.error('Failed to show notification:', err);
+    return false;
+  }
 }
