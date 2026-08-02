@@ -16,7 +16,8 @@ export function getNotificationStatus() {
 export function sendNotification(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return false;
   try {
-    new Notification(title, { body, icon: '/icons/icon-192.png' });
+    // Note: no icon option because /icons/icon-192.png does not exist yet
+    new Notification(title, { body });
     return true;
   } catch (err) {
     console.error('Failed to show notification:', err);

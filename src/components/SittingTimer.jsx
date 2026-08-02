@@ -204,6 +204,15 @@ export default function SittingTimer() {
     persist({ startTime: null, running: false, notified: false, intervalMinutes: null });
   };
 
+  // User confirms they got up — dismiss the modal and pause the timer
+  const dismissReminder = () => {
+    setReminded(false);
+    setRunning(false);
+    if (startTimeRef.current) {
+      persist({ startTime: startTimeRef.current, running: false, notified: notifiedRef.current, intervalMinutes });
+    }
+  };
+
   const minutes = Math.floor(seconds / 60);
   const remaining = Math.max(0, intervalMinutes - minutes);
 
@@ -228,9 +237,18 @@ export default function SittingTimer() {
       </div>
 
       {reminded && (
-        <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
-          <p className="text-sm font-medium text-orange-700">⏰ 该起来活动一下了！</p>
-          <p className="mt-1 text-xs text-orange-600">做几个伸展动作，活动一下腰部</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="text-5xl">⏰</div>
+            <h2 className="mt-3 text-lg font-bold text-gray-800">该起来活动一下了！</h2>
+            <p className="mt-2 text-sm text-gray-500">做几个伸展动作，活动一下腰部</p>
+            <button
+              onClick={dismissReminder}
+              className="mt-5 w-full rounded-xl bg-blue-600 py-3 font-medium text-white"
+            >
+              我去活动一下
+            </button>
+          </div>
         </div>
       )}
     </div>
