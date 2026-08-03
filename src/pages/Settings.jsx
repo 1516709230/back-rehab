@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { saveSetting, getSetting, getAssessments, getPainRecords, getLogsInRange } from '../db';
-import { requestNotificationPermission, sendNotification, getNotificationStatus } from '../logic/notifications';
+import { requestNotificationPermission, sendReminder, getNotificationStatus } from '../logic/notifications';
 import { Bell, Timer, Download, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -9,6 +9,7 @@ export default function Settings() {
   const [dailyReminder, setDailyReminder] = useState('20:00');
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifFeedback, setNotifFeedback] = useState(null); // { type: 'success' | 'error', text }
+  const [showTestModal, setShowTestModal] = useState(false);
 
   useEffect(() => {
     // Sync with actual browser permission state first
@@ -66,11 +67,13 @@ export default function Settings() {
       saveSetting('notificationsEnabled', true);
     }
 
-    const ok = sendNotification('测试通知', '如果你看到这条通知，说明推送功能正常');
+    const ok = sendReminder('测试通知', '如果你看到这条通知，说明推送功能正常');
+    // Always show the in-app modal so the full reminder experience is visible
+    setShowTestModal(true);
     if (ok) {
-      setNotifFeedback({ type: 'success', text: '测试通知已发送 ✓ 请查看屏幕右上角/系统通知中心' });
+      setNotifFeedback({ type: 'success', text: '测试提醒已触发 ✓ 若没看到系统通知，请检查浏览器地址栏 🔔 是否为“允许”（而非“静默”）' });
     } else {
-      setNotifFeedback({ type: 'error', text: '通知创建失败，请查看浏览器控制台错误' });
+      setNotifFeedback({ type: 'error', text: '系统通知创建失败，但应用内提醒已弹出，请检查浏览器通知设置' });
     }
   };
 
@@ -177,6 +180,22 @@ export default function Settings() {
         </p>
         <p className="mt-1 text-xs text-gray-400">版本 0.1.0</p>
       </div>
+
+      {showTestModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <div className="text-5xl">⏰</div>
+            <h2 className="mt-3 text-lg font-bold text-gray-800">该起来活动一下了！</h2>
+            <p className="mt-2 text-sm text-gray-500">做几个伸展动作，活动一下腰部</p>
+            <button
+              onClick={() => setShowTestModal(false)}
+              className="mt-5 w-full rounded-xl bg-blue-600 py-3 font-medium text-white"
+            >
+              我去活动一下
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

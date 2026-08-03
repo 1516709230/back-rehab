@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Timer, Play, Pause, RotateCcw } from 'lucide-react';
 import { getSetting } from '../db';
-import { sendNotification } from '../logic/notifications';
+import { sendReminder } from '../logic/notifications';
 
 const STORAGE_KEY_START = 'sitTimerStartTime';
 const STORAGE_KEY_RUNNING = 'sitTimerRunning';
@@ -50,9 +50,9 @@ export default function SittingTimer() {
   useEffect(() => { intervalRef.current = intervalMinutes; }, [intervalMinutes]);
   useEffect(() => { notifEnabledRef.current = notifEnabled; }, [notifEnabled]);
 
-  // --- Send a notification (sendNotification handles the permission check) ---
+  // --- Fire the reminder: system notification + beep + title flash ---
   const fireIfEnabled = useCallback(() => {
-    sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
+    sendReminder('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
   }, []);
 
   // --- Re-reminder: every 5 minutes after the initial notification ---
@@ -106,7 +106,7 @@ export default function SittingTimer() {
           notifiedRef.current = true;
           setReminded(true);
           if (dbNotifEnabled) {
-            sendNotification('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
+            sendReminder('该起来活动一下了！', '做几个伸展动作，活动一下腰部');
           }
           persist({ startTime: persisted.startTime, running: true, notified: true, intervalMinutes: effectiveInterval });
         }
