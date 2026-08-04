@@ -46,10 +46,20 @@ export function parseAIResponse(rawContent) {
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
-  
+
   try {
     return JSON.parse(cleaned);
   } catch {
+    // 小模型经常在 JSON 前后夹带解释文字，尝试提取其中的 JSON 对象
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(cleaned.slice(start, end + 1));
+      } catch {
+        // 提取失败则原样返回，交给调用方兜底
+      }
+    }
     return cleaned;
   }
 }

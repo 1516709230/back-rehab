@@ -1,4 +1,4 @@
-import { callAIWithFallback, parseAIResponse, createErrorResponse, createSuccessResponse } from './lib/ai';
+import { callAIWithFallback, parseAIResponse, createErrorResponse, createSuccessResponse } from './lib/ai.js';
 
 const SYSTEM_PROMPT = `你是一位资深康复理疗师，专门评估下背痛症状并提供运动建议。
 
@@ -38,15 +38,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     const aiMessages = [
-      { role: "system", content: fullSystemPrompt },
+      { role: "system", content: SYSTEM_PROMPT },
       ...messages
     ];
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
-      messages: aiMessages,
-      max_tokens: 1024,
-    });
-
+    // 走模型降级链（3b -> 1b + 限流重试），避免单点失败
+    const aiResponse = await callAIWithFallback(env, aiMessages, 1024);
     const rawContent = aiResponse.response || aiResponse;
     const parsed = parseAIResponse(rawContent);
 

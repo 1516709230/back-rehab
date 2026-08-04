@@ -1,4 +1,4 @@
-import { callAIWithFallback, parseAIResponse, createErrorResponse, createSuccessResponse } from './lib/ai';
+import { callAIWithFallback, parseAIResponse, createErrorResponse, createSuccessResponse } from './lib/ai.js';
 
 const SYSTEM_PROMPT = `You are a professional rehab plan designer for lower back pain. Generate structured weekly plans.
 
@@ -37,13 +37,11 @@ export async function onRequestPost({ request, env }) {
       userContent += ' Assessment history: type=' + assessment.type + ', direction=' + assessment.directionalPreference + ', summary=' + assessment.summary + '. Use this assessment context to personalize the plan.';
     }
 
-    const aiResponse = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      max_tokens: 2048,
-    });
+    // 走模型降级链（3b -> 1b + 限流重试），避免单点失败
+    const aiResponse = await callAIWithFallback(env, [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userContent },
+    ], 2048);
 
     const rawContent = aiResponse.response || aiResponse;
     const parsed = parseAIResponse(rawContent);
@@ -57,20 +55,6 @@ export async function onRequestPost({ request, env }) {
     console.error("plan error:", err);
     return createErrorResponse("生成失败", err.message || err);
   }
-}
-
-function buildUserContent(phase, painLevel, duration, notes, assessment) {
-  let content = `Generate a ${phase} phase rehab plan. Pain level: ${painLevel}/10. Session duration: ${duration} minutes.`;
-  
-  if (notes) {
-    content += ` Notes: ${notes}`;
-  }
-  
-  if (assessment) {
-    content += ` Assessment history: type=${assessment.type}, direction=${assessment.directionalPreference}, summary=${assessment.summary}. Use this assessment context to personalize the plan.`;
-  }
-  
-  return content;
 }
 
 function createFallbackResult(content) {
